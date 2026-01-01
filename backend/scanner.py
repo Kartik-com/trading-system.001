@@ -1,72 +1,100 @@
-# backend/scanner.py
+import time
 import ccxt
 import pandas as pd
-from config import *
-from indicators import ema, stoch_rsi
-from smc import detect_structure
-from timeframe import is_candle_closed
+from datetime import datetime, timezone
+
+# ✅ Correct relative imports (IMPORTANT)
+from config import (
+    EXCHANGE_ID,
+    SYMBOLS,
+    TIMEFRAMES,
+    EMA_FAST,
+    EMA_SLOW,
+    ATR_PERIOD,
+    ATR_MULTIPLIER,
+    SCAN_INTERVAL
+)
+from indicators import calculate_ema, calculate_atr
 from alerts import send_alert
-from models import Signal
 
-exchange = getattr(ccxt, EXCHANGE)()
 
-def analyze(symbol, timeframe):
+# ---------- Exchange ----------
+exchange = getattr(ccxt, EXCHANGE_ID)({
+    "enableRateLimit": True
+})
+
+
+# ---------- Helpers ----------
+def utc_now():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def fetch_ohlcv(symbol, timeframe, limit=200):
+    ohlcv = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
     df = pd.DataFrame(
-        exchange.fetch_ohlcv(symbol, timeframe, limit=200),
-        columns=["ts","open","high","low","close","volume"]
+        ohlcv,
+        columns=["ts", "open", "high", "low", "close", "volume"]
     )
+    df["dt"] = pd.to_datetime(df["ts"], unit="ms")
+    return df.set_index("dt")
 
-    df["ema20"] = ema(df["close"], 20)
-    df["ema50"] = ema(df["close"], 50)
-    df["ema200"] = ema(df["close"], 200)
-    df["stoch"] = stoch_rsi(df["close"])
 
-    structure = detect_structure(df)
+# ---------- Signal Logic ----------
+def detect_signal(df):
+    df["ema_fast"] = calculate_ema(df["close"], EMA_FAST)
+    df["ema_slow"] = calculate_ema(df["close"], EMA_SLOW)
+    df["atr"] = calculate_atr(df, ATR_PERIOD)
 
     last = df.iloc[-1]
+    prev = df.iloc[-2]
 
-    if last["close"] > last["ema200"] and structure == "BOS":
-        direction = "BUY"
-    elif last["close"] < last["ema200"] and structure == "CHoCH":
-        direction = "SELL"
-    else:
-        return None
+    signal = None
 
-    sl = last["low"] if direction == "BUY" else last["high"]
+    # BUY
+    if prev["ema_fast"] < prev["ema_slow"] and last["ema_fast"] > last["ema_slow"]:
+        signal = "BUY"
 
-    signal = Signal(
-        symbol=symbol,
-        timeframe=timeframe,
-        direction=direction,
-        entry=last["close"],
-        stop_loss=sl,
-        confidence="HIGH",
-        structure=structure,
-        candle_close=str(pd.to_datetime(last["ts"], unit="ms"))
-    )
+    # SELL
+    elif prev["ema_fast"] > prev["ema_slow"] and last["ema_fast"] < last["ema_slow"]:
+        signal = "SELL"
 
-    return signal
+    return signal, last
 
+
+# ---------- Main Scanner ----------
 def run_scanner():
-    while True:
-        for tf in TIMEFRAMES:
-            tf_minutes = int(tf.replace("m","").replace("h","")) * (60 if "h" in tf else 1)
-            if not is_candle_closed(tf_minutes):
-                continue
+    print("🚀 Scanner started")
 
+    while True:
+        try:
             for symbol in SYMBOLS:
-                try:
-                    signal = analyze(symbol, tf)
+                for timeframe in TIMEFRAMES:
+                    df = fetch_ohlcv(symbol, timeframe)
+                    signal, last = detect_signal(df)
+
                     if signal:
-                        msg = (
-                            f"{'🟢 BUY' if signal.direction=='BUY' else '🔴 SELL'} SIGNAL — {signal.symbol}\n"
-                            f"Timeframe: {signal.timeframe}\n"
-                            f"Structure: {signal.structure}\n"
-                            f"Entry: {signal.entry}\n"
-                            f"Stop Loss: {signal.stop_loss}\n"
-                            f"Confidence: {signal.confidence}\n"
-                            f"Candle Close: {signal.candle_close}"
+                        price = float(last["close"])
+                        atr = float(last["atr"])
+
+                        stop_loss = (
+                            price - ATR_MULTIPLIER * atr
+                            if signal == "BUY"
+                            else price + ATR_MULTIPLIER * atr
                         )
-                        send_alert(msg)
-                except Exception as e:
-                    print("Error:", e)
+
+                        message = (
+                            f"{'🟢 BUY' if signal == 'BUY' else '🔴 SELL'} SIGNAL — {symbol}\n"
+                            f"Timeframe: {timeframe}\n"
+                            f"Entry Price: {price:.4f}\n"
+                            f"Stop Loss: {stop_loss:.4f}\n"
+                            f"Candle Close: {utc_now()} UTC"
+                        )
+
+                        send_alert(message)
+                        print(message)
+
+            time.sleep(SCAN_INTERVAL)
+
+        except Exception as e:
+            print("Scanner error:", e)
+            time.sleep(5)

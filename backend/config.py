@@ -1,20 +1,17 @@
-# backend/config.py
+import os
 
+# Exchange
 EXCHANGE = "kraken"
 
-SYMBOLS = [
-    "BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT",
-    "XRP/USDT", "ADA/USDT", "DOGE/USDT", "AVAX/USDT",
-    "LINK/USDT", "MATIC/USDT"
-]
-
+# Timeframes
 TIMEFRAMES = ["15m", "1h"]
 
-EMA_PERIODS = [20, 50, 100, 200]
+# Symbols
+TOP_COINS = 10
 
-STOCH_RSI_PERIOD = 14
+# Telegram (ENV ONLY)
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-BOT_TOKEN = "8476137393:AAHhucpRd6FpNMRI7uGk91VT4qH0y6RuqGM"
-CHAT_ID = "-1003041148810"  # Replace with your new one
-
-SCAN_INTERVAL_SECONDS = 30
+# Safety
+SCAN_INTERVAL_SECONDS = 60
