@@ -63,14 +63,37 @@ def detect_signal(df):
 
 # ---------- Main Scanner ----------
 def run_scanner():
-    print("🚀 Scanner started")
-    send_alert("🚀 Scanner started! Telegram link confirmed.")
+    start_msg = (
+        f"🚀 **Scanner started!**\n"
+        f"Exchange: {EXCHANGE_ID.upper()}\n"
+        f"Symbols: {', '.join(SYMBOLS)}\n"
+        f"Timeframes: {', '.join(TIMEFRAMES)}\n"
+        f"Interval: {SCAN_INTERVAL}s"
+    )
+    print(start_msg.replace("**", "")) # Print without markdown for console
+    send_alert(start_msg)
+
+    # For heartbeat track
+    last_heartbeat = time.time()
+    heartbeat_interval = 4 * 3600 # 4 hours
 
     while True:
         try:
+            current_time = time.time()
+            
+            # Periodic Heartbeat
+            if current_time - last_heartbeat >= heartbeat_interval:
+                send_alert(f"💓 **Heartbeat**: Scanner is active and monitoring {len(SYMBOLS)} symbols.")
+                last_heartbeat = current_time
+
             for symbol in SYMBOLS:
                 for timeframe in TIMEFRAMES:
+                    print(f"🔍 [{utc_now()}] Scanning {symbol} on {timeframe}...")
                     df = fetch_ohlcv(symbol, timeframe)
+                    
+                    if df.empty or len(df) < 2:
+                        continue
+                        
                     signal, last = detect_signal(df)
 
                     if signal:
@@ -92,10 +115,12 @@ def run_scanner():
                         )
 
                         send_alert(message)
-                        print(message)
+                        print(f"✅ {message.replace('\n', ' ')}")
 
             time.sleep(SCAN_INTERVAL)
 
         except Exception as e:
-            print("Scanner error:", e)
-            time.sleep(5)
+            error_msg = f"❌ Scanner error: {e}"
+            print(error_msg)
+            # Only send persistent errors? Let's just log for now to avoid spam
+            time.sleep(10)
