@@ -64,6 +64,7 @@ def detect_signal(df):
 # ---------- Main Scanner ----------
 def run_scanner():
     print("🚀 Scanner started")
+    send_alert("🚀 Scanner started! Telegram link confirmed.")
 
     while True:
         try:
