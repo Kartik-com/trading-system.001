@@ -115,7 +115,7 @@ def run_scanner():
                         )
 
                         send_alert(message)
-                        print(f"✅ {message.replace('\n', ' ')}")
+                        print("✅", message.replace("\n", " "))
 
             time.sleep(SCAN_INTERVAL)
 
