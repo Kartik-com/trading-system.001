@@ -64,13 +64,13 @@ def detect_signal(df):
 # ---------- Main Scanner ----------
 def run_scanner():
     start_msg = (
-        f"🚀 **Scanner started!**\n"
-        f"Exchange: {EXCHANGE_ID.upper()}\n"
-        f"Symbols: {', '.join(SYMBOLS)}\n"
-        f"Timeframes: {', '.join(TIMEFRAMES)}\n"
-        f"Interval: {SCAN_INTERVAL}s"
+        "🟢 **TRADING BOT ONLINE**\n\n"
+        f"**Exchange:** `{EXCHANGE_ID.upper()}`\n"
+        f"**Pairs:** `{', '.join(SYMBOLS)}`\n"
+        f"**Time:** `{', '.join(TIMEFRAMES)}`\n"
+        f"**Interval:** `{SCAN_INTERVAL}s`"
     )
-    print(start_msg.replace("**", "")) # Print without markdown for console
+    print(start_msg.replace("**", "").replace("`", "")) 
     send_alert(start_msg)
 
     # For heartbeat track
@@ -107,11 +107,12 @@ def run_scanner():
                         )
 
                         message = (
-                            f"{'🟢 BUY' if signal == 'BUY' else '🔴 SELL'} SIGNAL — {symbol}\n"
-                            f"Timeframe: {timeframe}\n"
-                            f"Entry Price: {price:.4f}\n"
-                            f"Stop Loss: {stop_loss:.4f}\n"
-                            f"Candle Close: {utc_now()} UTC"
+                            f"{'🟢 BUY' if signal == 'BUY' else '🔴 SELL'} — **{symbol}**\n"
+                            "━━━━━━━━━━━━━━━━━\n\n"
+                            f"**Timeframe:** `{timeframe}`\n"
+                            f"**Entry Price:** `{price:.4f}`\n"
+                            f"**Stop Loss:** `{stop_loss:.4f}`\n\n"
+                            f"🕒 `{utc_now()} UTC`"
                         )
 
                         send_alert(message)
