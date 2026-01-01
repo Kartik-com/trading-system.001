@@ -1,12 +1,12 @@
 # backend/scanner.py
 import ccxt
 import pandas as pd
-from backend.config import *
-from backend.indicators import ema, stoch_rsi
-from backend.smc import detect_structure
-from backend.timeframe import is_candle_closed
-from backend.alerts import send_alert
-from backend.models import Signal
+from config import *
+from indicators import ema, stoch_rsi
+from smc import detect_structure
+from timeframe import is_candle_closed
+from alerts import send_alert
+from models import Signal
 
 exchange = getattr(ccxt, EXCHANGE)()
 
